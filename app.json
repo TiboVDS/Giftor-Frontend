@@ -28,8 +28,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite",
-      "nativewind/metro"
+      "expo-sqlite"
     ],
     "scheme": "giftor"
   }

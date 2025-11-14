@@ -1,5 +1,4 @@
-// Jest setup for testing environment
-// Extended matchers are already included in @testing-library/react-native
+import '@testing-library/react-native';
 
 // Set up environment variables for tests
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
@@ -21,6 +20,8 @@ jest.mock('expo-router', () => ({
   })),
   useSegments: jest.fn(() => []),
   usePathname: jest.fn(() => '/'),
+  useRootNavigationState: jest.fn(() => ({ key: 'root' })),
+  Tabs: ({ children }: any) => children,
 }));
 
 // Mock Supabase client
@@ -66,7 +67,7 @@ jest.mock('expo-sqlite', () => ({
   ),
 }));
 
-// Suppress console warnings during tests
+// Suppress console warnings in tests
 global.console = {
   ...console,
   warn: jest.fn(),

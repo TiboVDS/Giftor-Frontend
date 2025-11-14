@@ -1,0 +1,140 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SettingsScreen matches snapshot 1`] = `
+<View
+  className="flex-1 bg-white"
+>
+  <View
+    className="px-6 pb-6 bg-blue-600"
+    style={
+      {
+        "paddingTop": 12,
+      }
+    }
+  >
+    <Text
+      className="text-3xl font-bold text-white mb-2"
+    >
+      Settings
+    </Text>
+    <Text
+      className="text-blue-100 text-sm"
+    >
+      test@example.com
+    </Text>
+  </View>
+  <View
+    className="flex-1 px-6 py-6"
+  >
+    <View
+      className="mb-8"
+    >
+      <Text
+        className="text-lg font-semibold text-gray-900 mb-4"
+      >
+        Account
+      </Text>
+      <View
+        className="bg-gray-50 rounded-lg p-4 mb-3"
+      >
+        <Text
+          className="text-sm text-gray-600 mb-1"
+        >
+          Email
+        </Text>
+        <Text
+          className="text-base text-gray-900"
+        >
+          test@example.com
+        </Text>
+      </View>
+      <View
+        className="bg-gray-50 rounded-lg p-4"
+      >
+        <Text
+          className="text-sm text-gray-600 mb-1"
+        >
+          User ID
+        </Text>
+        <Text
+          className="text-base text-gray-900 font-mono text-xs"
+        >
+          test-user-id-123
+        </Text>
+      </View>
+    </View>
+    <View
+      className="mb-8"
+    >
+      <Text
+        className="text-lg font-semibold text-gray-900 mb-4"
+      >
+        App Info
+      </Text>
+      <View
+        className="bg-gray-50 rounded-lg p-4"
+      >
+        <Text
+          className="text-sm text-gray-600 mb-1"
+        >
+          Version
+        </Text>
+        <Text
+          className="text-base text-gray-900"
+        >
+          1.0.0 (Beta)
+        </Text>
+      </View>
+    </View>
+    <View
+      className="mb-8"
+    >
+      <Text
+        className="text-gray-500 text-sm text-center"
+      >
+        More settings coming soon
+      </Text>
+    </View>
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "opacity": 1,
+        }
+      }
+    >
+      <Text
+        className="text-white font-semibold text-base"
+      >
+        Logout
+      </Text>
+    </View>
+  </View>
+</View>
+`;

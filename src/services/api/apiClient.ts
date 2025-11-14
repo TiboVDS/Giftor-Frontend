@@ -44,14 +44,23 @@ export default apiClient;
 
 // Health check function for testing
 export const testHealth = async () => {
+  console.log('=== Starting Health Check ===');
+  console.log('Base URL:', process.env.EXPO_PUBLIC_API_URL);
+
   try {
     const startTime = Date.now();
+    console.log('Making GET request to /api/health...');
+
     const response = await apiClient.get('/api/health');
+
     const endTime = Date.now();
     const responseTime = endTime - startTime;
 
-    console.log('Health check response:', response.data);
+    console.log('✅ Health check SUCCESS');
+    console.log('Response status:', response.status);
+    console.log('Response data:', JSON.stringify(response.data, null, 2));
     console.log('Response time:', responseTime, 'ms');
+    console.log('=== Health Check Complete ===');
 
     return {
       success: true,
@@ -59,7 +68,20 @@ export const testHealth = async () => {
       responseTime,
     };
   } catch (error) {
-    console.error('Health check failed:', error);
+    console.log('❌ Health check FAILED');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error details:');
+      console.error('- Response status:', error.response?.status);
+      console.error('- Response data:', error.response?.data);
+      console.error('- Request URL:', error.config?.url);
+      console.error('- Base URL:', error.config?.baseURL);
+    }
+
+    console.log('=== Health Check Complete (with errors) ===');
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

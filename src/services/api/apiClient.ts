@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 const apiClient = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
@@ -8,14 +9,14 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor for adding auth token (will be implemented in Story 1.2)
+// Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // TODO: Add JWT token from auth store
-    // const token = useAuthStore.getState().token;
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    // Get JWT token from auth store
+    const session = useAuthStore.getState().session;
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
     return config;
   },
   (error) => {

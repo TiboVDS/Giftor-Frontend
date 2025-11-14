@@ -74,6 +74,13 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Placeholder for future settings */}
+        <View className="mb-8">
+          <Text className="text-gray-500 text-sm text-center">
+            More settings coming soon
+          </Text>
+        </View>
+
         {/* Logout Button */}
         <TouchableOpacity
           className="bg-red-600 rounded-lg py-4 items-center"

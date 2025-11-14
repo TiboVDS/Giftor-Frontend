@@ -5,7 +5,14 @@ module.exports = {
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
+    'app/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
+    '!app/**/*.d.ts',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleNameMapper: {
+    '^@/app/(.*)$': '<rootDir>/app/$1',
+    '^@/src/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
 };

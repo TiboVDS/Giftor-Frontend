@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/authClient';
 import apiClient from '@/services/api/apiClient';
 import type { AuthStore } from '../types/auth.types';
+import * as sqliteService from '@/services/database/sqliteService';
 
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -97,6 +98,10 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: async () => {
         try {
+          // Clear offline data first to prevent data leaks between users
+          await sqliteService.clearAllData();
+
+          // Then sign out from Supabase
           await supabase.auth.signOut();
           set({
             user: null,

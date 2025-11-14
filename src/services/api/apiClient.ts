@@ -13,6 +13,7 @@ const apiClient = axios.create({
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   (config) => {
+    // Get JWT token from auth store
     const session = useAuthStore.getState().session;
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;

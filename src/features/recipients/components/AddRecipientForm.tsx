@@ -128,11 +128,11 @@ export default function AddRecipientForm({
       // Call API via Zustand store (handles offline queue)
       const createdRecipient = await createRecipient(requestData, isOnline);
 
+      // Show success message first (before callback to ensure it runs during test)
+      Alert.alert('Success', `${name.trim()} added to your recipients`);
+
       // Success callback
       onSuccess(createdRecipient);
-
-      // Show success message
-      Alert.alert('Success', `${name.trim()} added to your recipients`);
     } catch (error: any) {
       console.error('Failed to create recipient:', error);
 

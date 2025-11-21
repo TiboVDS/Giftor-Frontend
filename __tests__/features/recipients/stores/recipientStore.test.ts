@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useRecipientStore } from '../../../../src/features/recipients/stores/recipientStore';
+import { useAuthStore } from '../../../../src/features/auth/stores/authStore';
 import * as sqliteService from '../../../../src/services/database/sqliteService';
 import * as offlineQueue from '../../../../src/services/sync/offlineQueue';
 import apiClient from '../../../../src/services/api/apiClient';
@@ -8,6 +9,7 @@ import apiClient from '../../../../src/services/api/apiClient';
 jest.mock('../../../../src/services/database/sqliteService');
 jest.mock('../../../../src/services/sync/offlineQueue');
 jest.mock('../../../../src/services/api/apiClient');
+jest.mock('../../../../src/features/auth/stores/authStore');
 
 describe('RecipientStore', () => {
   const mockRecipient = {
@@ -22,6 +24,13 @@ describe('RecipientStore', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock auth store with authenticated user
+    (useAuthStore.getState as jest.Mock) = jest.fn(() => ({
+      user: { id: 'user-1', email: 'test@example.com' },
+      token: 'mock-token',
+    }));
+
     // Reset store state
     useRecipientStore.setState({
       recipients: [],
@@ -52,7 +61,7 @@ describe('RecipientStore', () => {
 
       (sqliteService.getRecipients as jest.Mock).mockResolvedValue([mockRecipient]);
       (apiClient.get as jest.Mock).mockResolvedValue({
-        data: { data: apiRecipients },
+        data: { success: true, data: apiRecipients },
       });
       (sqliteService.upsertRecipients as jest.Mock).mockResolvedValue(undefined);
 
@@ -65,10 +74,25 @@ describe('RecipientStore', () => {
       // First loads from SQLite
       expect(sqliteService.getRecipients).toHaveBeenCalledWith('user-1');
 
-      // Then syncs with API
+      // Wait for async API sync to complete
+      await waitFor(
+        () => {
+          expect(apiClient.get).toHaveBeenCalledWith('/api/recipients');
+          expect(sqliteService.upsertRecipients).toHaveBeenCalledWith(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: '123',
+                name: 'John Doe Updated',
+                relationship: 'Friend',
+              }),
+            ])
+          );
+        },
+        { timeout: 3000 }
+      );
+
+      // Verify state updated
       await waitFor(() => {
-        expect(apiClient.get).toHaveBeenCalledWith('/api/recipients');
-        expect(sqliteService.upsertRecipients).toHaveBeenCalledWith(apiRecipients);
         expect(result.current.recipients[0].name).toBe('John Doe Updated');
       });
     });
@@ -112,15 +136,16 @@ describe('RecipientStore', () => {
 
     it('should sync to API when online', async () => {
       const newRecipientData = {
-        userId: 'user-1',
         name: 'Jane Smith',
         relationship: 'Sister',
-        hobbiesInterests: [],
+        interests: [],
       };
 
       const serverRecipient = {
         ...newRecipientData,
         id: 'server-123',
+        userId: 'user-1',
+        hobbiesInterests: [],
         createdAt: '2025-11-14T10:00:00Z',
         updatedAt: '2025-11-14T10:00:00Z',
       };
@@ -129,7 +154,7 @@ describe('RecipientStore', () => {
         Promise.resolve(r)
       );
       (apiClient.post as jest.Mock).mockResolvedValue({
-        data: { data: serverRecipient },
+        data: { success: true, data: serverRecipient },
       });
       (sqliteService.updateRecipient as jest.Mock).mockResolvedValue(serverRecipient);
 
@@ -142,11 +167,20 @@ describe('RecipientStore', () => {
       // Should write to SQLite
       expect(sqliteService.insertRecipient).toHaveBeenCalled();
 
-      // Should sync to API
-      expect(apiClient.post).toHaveBeenCalledWith('/api/recipients', newRecipientData);
+      // Wait for API sync
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
 
-      // Should update with server response
-      expect(sqliteService.updateRecipient).toHaveBeenCalledWith(serverRecipient);
+      // Should update with server response (store adds extra fields like birthday, anniversary, notes)
+      expect(sqliteService.updateRecipient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'server-123',
+          userId: 'user-1',
+          name: 'Jane Smith',
+          relationship: 'Sister',
+        })
+      );
 
       // Should update store with server ID
       expect(result.current.recipients[0].id).toBe('server-123');

@@ -72,7 +72,7 @@ exports[`SettingsScreen matches snapshot 1`] = `
         App Info
       </Text>
       <View
-        className="bg-gray-50 rounded-lg p-4"
+        className="bg-gray-50 rounded-lg p-4 mb-3"
       >
         <Text
           className="text-sm text-gray-600 mb-1"
@@ -83,6 +83,52 @@ exports[`SettingsScreen matches snapshot 1`] = `
           className="text-base text-gray-900"
         >
           1.0.0 (Beta)
+        </Text>
+      </View>
+      <View
+        className="bg-gray-50 rounded-lg p-4 mb-3"
+      >
+        <Text
+          className="text-sm text-gray-600 mb-2"
+        >
+          Environment
+        </Text>
+        <View
+          style={
+            {
+              "backgroundColor": "#10B981",
+              "borderRadius": 4,
+              "paddingHorizontal": 8,
+              "paddingVertical": 4,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#FFFFFF",
+                "fontSize": 10,
+                "fontWeight": "bold",
+                "letterSpacing": 0.5,
+              }
+            }
+          >
+            DEV
+          </Text>
+        </View>
+      </View>
+      <View
+        className="bg-gray-50 rounded-lg p-4"
+      >
+        <Text
+          className="text-sm text-gray-600 mb-1"
+        >
+          API Base URL
+        </Text>
+        <Text
+          className="text-xs text-gray-900 font-mono"
+        >
+          http://localhost:5000
         </Text>
       </View>
     </View>

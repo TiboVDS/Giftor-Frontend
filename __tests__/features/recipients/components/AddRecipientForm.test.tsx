@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 import AddRecipientForm from '@/features/recipients/components/AddRecipientForm';
 import { useRecipientStore } from '@/features/recipients/stores/recipientStore';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -10,9 +9,6 @@ jest.mock('@/features/recipients/stores/recipientStore');
 jest.mock('@/hooks/useNetworkStatus');
 jest.mock('@react-native-picker/picker');
 // DatePicker and TagInput are mocked via module mapper in jest.config.js
-
-// Mock Alert
-jest.spyOn(Alert, 'alert');
 
 const mockedUseRecipientStore = useRecipientStore as jest.MockedFunction<
   typeof useRecipientStore
@@ -118,7 +114,6 @@ describe('AddRecipientForm', () => {
 
     await waitFor(() => {
       expect(mockOnSuccess).toHaveBeenCalledWith(mockRecipient);
-      expect(Alert.alert).toHaveBeenCalledWith('Success', 'Emma Johnson added to your recipients');
     });
   });
 

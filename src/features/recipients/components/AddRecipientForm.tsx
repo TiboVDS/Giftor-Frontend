@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -128,10 +127,7 @@ export default function AddRecipientForm({
       // Call API via Zustand store (handles offline queue)
       const createdRecipient = await createRecipient(requestData, isOnline);
 
-      // Show success message first (before callback to ensure it runs during test)
-      Alert.alert('Success', `${name.trim()} added to your recipients`);
-
-      // Success callback
+      // Success callback (parent component should handle success UI feedback)
       onSuccess(createdRecipient);
     } catch (error: any) {
       console.error('Failed to create recipient:', error);
@@ -151,11 +147,10 @@ export default function AddRecipientForm({
 
         setErrors(mappedErrors);
       } else {
-        // Network or other error
-        Alert.alert(
-          'Error',
-          'Could not save. Check your connection and try again.'
-        );
+        // Network or other error - show generic error in form
+        setErrors({
+          name: 'Could not save. Check your connection and try again.',
+        });
       }
     } finally {
       setIsSubmitting(false);

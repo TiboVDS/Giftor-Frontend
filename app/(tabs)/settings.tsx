@@ -2,6 +2,8 @@ import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
+import { ENV } from '@/constants/config';
 
 export default function SettingsScreen() {
   const { logout, user } = useAuthStore();
@@ -68,9 +70,21 @@ export default function SettingsScreen() {
         <View className="mb-8">
           <Text className="text-lg font-semibold text-gray-900 mb-4">App Info</Text>
 
-          <View className="bg-gray-50 rounded-lg p-4">
+          <View className="bg-gray-50 rounded-lg p-4 mb-3">
             <Text className="text-sm text-gray-600 mb-1">Version</Text>
             <Text className="text-base text-gray-900">1.0.0 (Beta)</Text>
+          </View>
+
+          <View className="bg-gray-50 rounded-lg p-4 mb-3">
+            <Text className="text-sm text-gray-600 mb-2">Environment</Text>
+            <EnvironmentBadge visible={true} />
+          </View>
+
+          <View className="bg-gray-50 rounded-lg p-4">
+            <Text className="text-sm text-gray-600 mb-1">API Base URL</Text>
+            <Text className="text-xs text-gray-900 font-mono">
+              {ENV.apiBaseUrl}
+            </Text>
           </View>
         </View>
 

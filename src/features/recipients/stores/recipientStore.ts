@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { Recipient } from '../../../types/database.types';
 import * as sqliteService from '../../../services/database/sqliteService';
 import * as offlineQueue from '../../../services/sync/offlineQueue';
+import * as recipientService from '../services/recipientService';
+import { RecipientDto, CreateRecipientRequest } from '../types/recipient.types';
+import { useAuthStore } from '../../auth/stores/authStore';
 import apiClient from '../../../services/api/apiClient';
 
 interface RecipientStore {
@@ -12,7 +15,7 @@ interface RecipientStore {
 
   // Actions
   fetchRecipients: (userId: string, isOnline: boolean) => Promise<void>;
-  createRecipient: (data: Omit<Recipient, 'id' | 'createdAt' | 'updatedAt'>, isOnline: boolean) => Promise<void>;
+  createRecipient: (data: CreateRecipientRequest, isOnline: boolean) => Promise<RecipientDto>;
   updateRecipient: (recipient: Recipient, isOnline: boolean) => Promise<void>;
   deleteRecipient: (id: string, isOnline: boolean) => Promise<void>;
   clearRecipients: () => void;
@@ -39,14 +42,16 @@ export const useRecipientStore = create<RecipientStore>((set, get) => ({
       if (isOnline) {
         set({ isSyncing: true });
         try {
-          const response = await apiClient.get<{ data: Recipient[] }>('/api/recipients');
-          const apiRecipients = response.data.data;
+          const apiRecipients = await recipientService.fetchRecipients();
+
+          // Map RecipientDto to Recipient (database type)
+          const mappedRecipients: Recipient[] = apiRecipients.map(dtoToRecipient);
 
           // Update SQLite with API data
-          await sqliteService.upsertRecipients(apiRecipients);
+          await sqliteService.upsertRecipients(mappedRecipients);
 
           // Update store
-          set({ recipients: apiRecipients, isSyncing: false });
+          set({ recipients: mappedRecipients, isSyncing: false });
         } catch (syncError) {
           console.warn('⚠️ Failed to sync recipients from API:', syncError);
           set({ isSyncing: false });
@@ -62,45 +67,63 @@ export const useRecipientStore = create<RecipientStore>((set, get) => ({
   /**
    * Create a new recipient
    */
-  createRecipient: async (data, isOnline) => {
+  createRecipient: async (data: CreateRecipientRequest, isOnline: boolean): Promise<RecipientDto> => {
     try {
+      const userId = useAuthStore.getState().user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
       const now = new Date().toISOString();
-      const newRecipient: Recipient = {
-        ...data,
-        id: generateGuid(), // Generate temporary GUID (will be replaced by server if online)
+      const tempId = generateGuid();
+
+      // Create temporary recipient for optimistic update
+      const tempRecipient: Recipient = {
+        id: tempId,
+        userId,
+        name: data.name,
+        relationship: data.relationship || 'Unknown',
+        birthday: data.birthday,
+        anniversary: data.anniversary,
+        hobbiesInterests: data.interests || [],
+        notes: data.notes,
         createdAt: now,
         updatedAt: now,
       };
 
       // Write to SQLite immediately (optimistic update)
-      await sqliteService.insertRecipient(newRecipient);
+      await sqliteService.insertRecipient(tempRecipient);
 
       // Update store (UI reflects change instantly)
-      set({ recipients: [...get().recipients, newRecipient] });
+      set({ recipients: [...get().recipients, tempRecipient] });
 
       if (isOnline) {
         // Sync to server
         try {
-          const response = await apiClient.post<{ data: Recipient }>('/api/recipients', data);
-          const serverRecipient = response.data.data;
+          const serverRecipient = await recipientService.createRecipient(data);
+          const mappedRecipient = dtoToRecipient(serverRecipient);
 
           // Update SQLite and store with server response (includes server ID and timestamp)
-          await sqliteService.updateRecipient(serverRecipient);
+          await sqliteService.updateRecipient(mappedRecipient);
           set({
             recipients: get().recipients.map(r =>
-              r.id === newRecipient.id ? serverRecipient : r
+              r.id === tempId ? mappedRecipient : r
             ),
           });
+
+          return serverRecipient;
         } catch (apiError) {
           console.error('❌ Failed to create recipient on server:', apiError);
           // Revert optimistic update
-          await sqliteService.deleteRecipient(newRecipient.id);
-          set({ recipients: get().recipients.filter(r => r.id !== newRecipient.id) });
+          await sqliteService.deleteRecipient(tempId);
+          set({ recipients: get().recipients.filter(r => r.id !== tempId) });
           throw apiError;
         }
       } else {
         // Queue for sync when online
-        await offlineQueue.addToQueue('CREATE', 'Recipient', newRecipient.id, newRecipient);
+        await offlineQueue.addToQueue('CREATE', 'Recipient', tempId, tempRecipient);
+        // Return temporary recipient as DTO
+        return recipientToDto(tempRecipient);
       }
     } catch (error: any) {
       console.error('❌ Failed to create recipient:', error);
@@ -209,4 +232,38 @@ const generateGuid = (): string => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+};
+
+/**
+ * Map RecipientDto (API) to Recipient (database)
+ */
+const dtoToRecipient = (dto: RecipientDto): Recipient => {
+  return {
+    id: dto.id,
+    userId: dto.userId,
+    name: dto.name,
+    relationship: dto.relationship,
+    birthday: dto.birthday,
+    anniversary: dto.anniversary,
+    hobbiesInterests: dto.interests || [],
+    notes: dto.notes,
+    createdAt: new Date().toISOString(), // Not returned by API
+    updatedAt: new Date().toISOString(), // Not returned by API
+  };
+};
+
+/**
+ * Map Recipient (database) to RecipientDto (API)
+ */
+const recipientToDto = (recipient: Recipient): RecipientDto => {
+  return {
+    id: recipient.id,
+    userId: recipient.userId,
+    name: recipient.name,
+    relationship: recipient.relationship,
+    birthday: recipient.birthday,
+    anniversary: recipient.anniversary,
+    interests: recipient.hobbiesInterests || [],
+    notes: recipient.notes,
+  };
 };

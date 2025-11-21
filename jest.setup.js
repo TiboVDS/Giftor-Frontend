@@ -67,6 +67,11 @@ jest.mock('expo-sqlite', () => ({
   ),
 }));
 
+// Mock React Native Alert to prevent teardown warnings
+global.Alert = {
+  alert: jest.fn(),
+};
+
 // Suppress console warnings in tests
 global.console = {
   ...console,

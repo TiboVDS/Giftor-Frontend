@@ -11,6 +11,8 @@ module.exports = {
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
+    '.*\\/components\\/ui\\/DatePicker$': '<rootDir>/__mocks__/DatePicker.js',
+    '.*\\/components\\/ui\\/TagInput$': '<rootDir>/__mocks__/TagInput.js',
     '^@/app/(.*)$': '<rootDir>/app/$1',
     '^@/src/(.*)$': '<rootDir>/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',

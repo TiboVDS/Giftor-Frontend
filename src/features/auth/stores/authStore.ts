@@ -2,13 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/authClient';
-import apiClient from '@/services/api/apiClient';
+import apiClient, { setAuthSessionGetter } from '@/services/api/apiClient';
 import type { AuthStore } from '../types/auth.types';
 import * as sqliteService from '@/services/database/sqliteService';
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => {
+    (set, get) => {
+      // Initialize the auth session getter for apiClient to avoid circular dependency
+      setAuthSessionGetter(() => get().session);
       // Set up auth state change listener
       supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);

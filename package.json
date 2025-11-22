@@ -20,6 +20,7 @@
     "date-fns": "^4.1.0",
     "expo": "~54.0.23",
     "expo-constants": "~18.0.10",
+    "expo-image": "~3.0.10",
     "expo-router": "~6.0.14",
     "expo-sqlite": "~16.0.9",
     "expo-status-bar": "~3.0.8",

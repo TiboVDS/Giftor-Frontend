@@ -272,4 +272,162 @@ describe('RecipientStore', () => {
       expect(result.current.error).toBeNull();
     });
   });
+
+  describe('Search and Sort', () => {
+    const recipients = [
+      {
+        id: '1',
+        userId: 'user-1',
+        name: 'Alice Smith',
+        relationship: 'Friend',
+        hobbiesInterests: [],
+        birthday: '1995-03-15',
+        createdAt: '2025-11-10T10:00:00Z',
+        updatedAt: '2025-11-10T10:00:00Z',
+      },
+      {
+        id: '2',
+        userId: 'user-1',
+        name: 'Bob Johnson',
+        relationship: 'Family',
+        hobbiesInterests: [],
+        birthday: '1988-06-20',
+        createdAt: '2025-11-12T10:00:00Z',
+        updatedAt: '2025-11-12T10:00:00Z',
+      },
+      {
+        id: '3',
+        userId: 'user-1',
+        name: 'Charlie Brown',
+        relationship: 'Colleague',
+        hobbiesInterests: [],
+        createdAt: '2025-11-14T10:00:00Z',
+        updatedAt: '2025-11-14T10:00:00Z',
+      },
+    ];
+
+    describe('setSearchQuery', () => {
+      it('should update search query', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSearchQuery('alice');
+        });
+
+        expect(result.current.searchQuery).toBe('alice');
+      });
+    });
+
+    describe('setSortOption', () => {
+      it('should update sort option', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSortOption('name-desc');
+        });
+
+        expect(result.current.sortOption).toBe('name-desc');
+      });
+    });
+
+    describe('filteredRecipients', () => {
+      beforeEach(() => {
+        useRecipientStore.setState({
+          recipients,
+          searchQuery: '',
+          sortOption: 'name-asc',
+        });
+      });
+
+      it('should filter recipients by name (case-insensitive)', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSearchQuery('alice');
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered).toHaveLength(1);
+        expect(filtered[0].name).toBe('Alice Smith');
+      });
+
+      it('should filter recipients with partial match', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSearchQuery('o'); // Matches Bob and Brown
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered).toHaveLength(2);
+        expect(filtered.map(r => r.name)).toContain('Bob Johnson');
+        expect(filtered.map(r => r.name)).toContain('Charlie Brown');
+      });
+
+      it('should sort by name ascending (A-Z)', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSortOption('name-asc');
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered[0].name).toBe('Alice Smith');
+        expect(filtered[1].name).toBe('Bob Johnson');
+        expect(filtered[2].name).toBe('Charlie Brown');
+      });
+
+      it('should sort by name descending (Z-A)', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSortOption('name-desc');
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered[0].name).toBe('Charlie Brown');
+        expect(filtered[1].name).toBe('Bob Johnson');
+        expect(filtered[2].name).toBe('Alice Smith');
+      });
+
+      it('should sort by recently added (newest first)', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSortOption('recent');
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered[0].name).toBe('Charlie Brown'); // 2025-11-14
+        expect(filtered[1].name).toBe('Bob Johnson'); // 2025-11-12
+        expect(filtered[2].name).toBe('Alice Smith'); // 2025-11-10
+      });
+
+      it('should apply both search and sort together', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSearchQuery('o'); // Matches Bob and Charlie
+          result.current.setSortOption('name-desc'); // Sort Z-A
+        });
+
+        const filtered = result.current.filteredRecipients();
+        expect(filtered).toHaveLength(2);
+        expect(filtered[0].name).toBe('Charlie Brown'); // C before B
+        expect(filtered[1].name).toBe('Bob Johnson');
+      });
+
+      it('should place recipients without birthdays at end when sorting by birthday', () => {
+        const { result } = renderHook(() => useRecipientStore());
+
+        act(() => {
+          result.current.setSortOption('birthday');
+        });
+
+        const filtered = result.current.filteredRecipients();
+        // Recipients with birthdays first, Charlie (no birthday) last
+        expect(filtered[2].name).toBe('Charlie Brown');
+      });
+    });
+  });
 });

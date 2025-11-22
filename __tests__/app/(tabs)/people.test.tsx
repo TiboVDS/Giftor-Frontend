@@ -19,6 +19,28 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+// Mock components
+jest.mock('@/features/recipients/components/RecipientSearchBar', () => ({
+  RecipientSearchBar: () => null,
+}));
+jest.mock('@/features/recipients/components/RecipientSortMenu', () => ({
+  RecipientSortMenu: () => null,
+}));
+jest.mock('@/features/recipients/components/RecipientList', () => ({
+  RecipientList: () => null,
+}));
+jest.mock('@/components/ui/EmptyState', () => {
+  const { Text } = require('react-native');
+  return {
+    EmptyState: ({ title, message }: any) => (
+      <>
+        <Text>{title}</Text>
+        <Text>{message}</Text>
+      </>
+    ),
+  };
+});
+
 const mockedUseRecipientStore = useRecipientStore as jest.MockedFunction<
   typeof useRecipientStore
 >;
@@ -39,11 +61,16 @@ describe('PeopleScreen', () => {
       isLoading: false,
       isSyncing: false,
       error: null,
+      searchQuery: '',
+      sortOption: 'name-asc' as any,
+      filteredRecipients: jest.fn(() => []),
       fetchRecipients: jest.fn(),
       createRecipient: jest.fn(),
       updateRecipient: jest.fn(),
       deleteRecipient: jest.fn(),
       clearRecipients: jest.fn(),
+      setSearchQuery: jest.fn(),
+      setSortOption: jest.fn(),
     });
 
     mockedUseAuthStore.mockReturnValue({
@@ -65,7 +92,7 @@ describe('PeopleScreen', () => {
 
   it('renders with correct header', () => {
     render(<PeopleScreen />);
-    expect(screen.getByText('Your Recipients')).toBeTruthy();
+    expect(screen.getByText('People')).toBeTruthy();
   });
 
   it('displays placeholder text when no recipients', () => {

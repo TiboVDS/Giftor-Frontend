@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Recipient } from '../../../types/database.types';
 import * as sqliteService from '../../../services/database/sqliteService';
 import * as offlineQueue from '../../../services/sync/offlineQueue';
@@ -7,11 +9,20 @@ import { RecipientDto, CreateRecipientRequest } from '../types/recipient.types';
 import { useAuthStore } from '../../auth/stores/authStore';
 import apiClient from '../../../services/api/apiClient';
 
+export type SortOption = 'name-asc' | 'name-desc' | 'birthday' | 'recent';
+
 interface RecipientStore {
   recipients: Recipient[];
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
+
+  // Search and Sort state
+  searchQuery: string;
+  sortOption: SortOption;
+
+  // Computed properties
+  filteredRecipients: () => Recipient[];
 
   // Actions
   fetchRecipients: (userId: string, isOnline: boolean) => Promise<void>;
@@ -19,13 +30,57 @@ interface RecipientStore {
   updateRecipient: (recipient: Recipient, isOnline: boolean) => Promise<void>;
   deleteRecipient: (id: string, isOnline: boolean) => Promise<void>;
   clearRecipients: () => void;
+  setSearchQuery: (query: string) => void;
+  setSortOption: (option: SortOption) => void;
 }
 
-export const useRecipientStore = create<RecipientStore>((set, get) => ({
-  recipients: [],
-  isLoading: false,
-  isSyncing: false,
-  error: null,
+export const useRecipientStore = create<RecipientStore>()(
+  persist(
+    (set, get) => ({
+      recipients: [],
+      isLoading: false,
+      isSyncing: false,
+      error: null,
+      searchQuery: '',
+      sortOption: 'name-asc',
+
+      /**
+       * Get filtered and sorted recipients based on current search and sort settings
+       */
+      filteredRecipients: () => {
+        const { recipients, searchQuery, sortOption } = get();
+
+        // Apply search filter
+        let filtered = recipients;
+        if (searchQuery.trim().length > 0) {
+          const query = searchQuery.toLowerCase();
+          filtered = recipients.filter((r) =>
+            r.name.toLowerCase().includes(query)
+          );
+        }
+
+        // Apply sort
+        const sorted = [...filtered].sort((a, b) => {
+          switch (sortOption) {
+            case 'name-asc':
+              return a.name.localeCompare(b.name);
+
+            case 'name-desc':
+              return b.name.localeCompare(a.name);
+
+            case 'birthday':
+              return sortByUpcomingBirthday(a, b);
+
+            case 'recent':
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+            default:
+              return 0;
+          }
+        });
+
+        return sorted;
+      },
 
   /**
    * Fetch recipients from local SQLite first, then sync with API if online
@@ -221,7 +276,28 @@ export const useRecipientStore = create<RecipientStore>((set, get) => ({
   clearRecipients: () => {
     set({ recipients: [], isLoading: false, isSyncing: false, error: null });
   },
-}));
+
+  /**
+   * Set search query for filtering recipients
+   */
+  setSearchQuery: (query: string) => {
+    set({ searchQuery: query });
+  },
+
+  /**
+   * Set sort option for ordering recipients
+   */
+  setSortOption: (option: SortOption) => {
+    set({ sortOption: option });
+  },
+    }),
+    {
+      name: 'recipient-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ sortOption: state.sortOption }), // Only persist sort preference
+    }
+  )
+);
 
 /**
  * Generate a temporary GUID for offline-created entities
@@ -266,4 +342,42 @@ const recipientToDto = (recipient: Recipient): RecipientDto => {
     interests: recipient.hobbiesInterests || [],
     notes: recipient.notes,
   };
+};
+
+/**
+ * Sort recipients by upcoming birthday (soonest first)
+ * Recipients without birthdays are placed at the end
+ */
+const sortByUpcomingBirthday = (a: Recipient, b: Recipient): number => {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+
+  // Calculate days until next birthday for recipient a
+  const daysUntilA = a.birthday ? getDaysUntilBirthday(a.birthday, today, currentYear) : Infinity;
+
+  // Calculate days until next birthday for recipient b
+  const daysUntilB = b.birthday ? getDaysUntilBirthday(b.birthday, today, currentYear) : Infinity;
+
+  return daysUntilA - daysUntilB;
+};
+
+/**
+ * Calculate days until next birthday occurrence
+ */
+const getDaysUntilBirthday = (birthday: string, today: Date, currentYear: number): number => {
+  const birthdayDate = new Date(birthday);
+  const month = birthdayDate.getMonth();
+  const day = birthdayDate.getDate();
+
+  // Birthday this year
+  const birthdayThisYear = new Date(currentYear, month, day);
+  let daysUntil = Math.floor((birthdayThisYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  // If birthday already passed this year, calculate for next year
+  if (daysUntil < 0) {
+    const birthdayNextYear = new Date(currentYear + 1, month, day);
+    daysUntil = Math.floor((birthdayNextYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  return daysUntil;
 };

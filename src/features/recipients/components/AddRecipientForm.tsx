@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DatePicker from '../../../components/ui/DatePicker';
@@ -16,19 +17,25 @@ import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
 import {
   CreateRecipientRequest,
   RecipientDto,
+  UpdateRecipientRequest,
   RELATIONSHIP_OPTIONS,
 } from '../types/recipient.types';
+import { Recipient } from '../../../types/database.types';
 
 interface AddRecipientFormProps {
+  mode?: 'create' | 'edit';
+  initialData?: Recipient;
   onSuccess: (recipient: RecipientDto) => void;
   onCancel: () => void;
 }
 
 /**
  * AddRecipientForm component
- * Form for creating a new recipient with validation and API integration
+ * Form for creating or editing a recipient with validation and API integration
  */
 export default function AddRecipientForm({
+  mode = 'create',
+  initialData,
   onSuccess,
   onCancel,
 }: AddRecipientFormProps) {
@@ -46,8 +53,21 @@ export default function AddRecipientForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Zustand store and network status
-  const { createRecipient } = useRecipientStore();
+  const { createRecipient, updateRecipient } = useRecipientStore();
   const { isOnline } = useNetworkStatus();
+
+  // Pre-fill form fields in edit mode
+  useEffect(() => {
+    if (mode === 'edit' && initialData) {
+      setName(initialData.name || '');
+      setRelationship(initialData.relationship || 'Unknown');
+      setProfilePictureUrl(initialData.profilePictureUrl || '');
+      setBirthday(initialData.birthday ? new Date(initialData.birthday) : null);
+      setAnniversary(initialData.anniversary ? new Date(initialData.anniversary) : null);
+      setInterests(initialData.hobbiesInterests || []);
+      setNotes(initialData.notes || '');
+    }
+  }, [mode, initialData]);
 
   /**
    * Client-side validation
@@ -111,26 +131,66 @@ export default function AddRecipientForm({
     setErrors({});
 
     try {
-      // Prepare request data
-      const requestData: CreateRecipientRequest = {
-        name: name.trim(),
-        relationship: relationship || 'Unknown',
-        profilePictureUrl: profilePictureUrl.trim() || undefined,
-        birthday: birthday ? birthday.toISOString().split('T')[0] : undefined,
-        anniversary: anniversary
-          ? anniversary.toISOString().split('T')[0]
-          : undefined,
-        interests,
-        notes: notes.trim() || undefined,
-      };
+      if (mode === 'create') {
+        // Create new recipient
+        const requestData: CreateRecipientRequest = {
+          name: name.trim(),
+          relationship: relationship || 'Unknown',
+          profilePictureUrl: profilePictureUrl.trim() || undefined,
+          birthday: birthday ? birthday.toISOString().split('T')[0] : undefined,
+          anniversary: anniversary
+            ? anniversary.toISOString().split('T')[0]
+            : undefined,
+          interests,
+          notes: notes.trim() || undefined,
+        };
 
-      // Call API via Zustand store (handles offline queue)
-      const createdRecipient = await createRecipient(requestData, isOnline);
+        // Call API via Zustand store (handles offline queue)
+        const createdRecipient = await createRecipient(requestData, isOnline);
 
-      // Success callback (parent component should handle success UI feedback)
-      onSuccess(createdRecipient);
+        // Success callback (parent component should handle success UI feedback)
+        onSuccess(createdRecipient);
+      } else {
+        // Edit existing recipient
+        if (!initialData?.id) {
+          throw new Error('Recipient ID is required for update');
+        }
+
+        const updatedRecipient: Recipient = {
+          ...initialData,
+          name: name.trim(),
+          relationship: relationship || 'Unknown',
+          profilePictureUrl: profilePictureUrl.trim() || undefined,
+          birthday: birthday ? birthday.toISOString().split('T')[0] : undefined,
+          anniversary: anniversary
+            ? anniversary.toISOString().split('T')[0]
+            : undefined,
+          hobbiesInterests: interests,
+          notes: notes.trim() || undefined,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Call API via Zustand store (handles offline queue)
+        await updateRecipient(updatedRecipient, isOnline);
+
+        // Convert to DTO for callback
+        const recipientDto: RecipientDto = {
+          id: updatedRecipient.id,
+          userId: updatedRecipient.userId,
+          name: updatedRecipient.name,
+          relationship: updatedRecipient.relationship,
+          profilePictureUrl: updatedRecipient.profilePictureUrl,
+          birthday: updatedRecipient.birthday,
+          anniversary: updatedRecipient.anniversary,
+          interests: updatedRecipient.hobbiesInterests || [],
+          notes: updatedRecipient.notes,
+        };
+
+        // Success callback
+        onSuccess(recipientDto);
+      }
     } catch (error: any) {
-      console.error('Failed to create recipient:', error);
+      console.error(`Failed to ${mode} recipient:`, error);
 
       // Handle backend validation errors
       if (
@@ -302,7 +362,7 @@ export default function AddRecipientForm({
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-white text-center font-semibold text-base">
-              Save
+              {mode === 'edit' ? 'Update' : 'Save'}
             </Text>
           )}
         </Pressable>

@@ -60,14 +60,9 @@ export default function PeopleScreen() {
     router.push('/add-recipient');
   };
 
-  // Navigation to recipient detail (placeholder for Story 2.5)
+  // Navigation to recipient detail
   const handleRecipientPress = (recipientId: string) => {
-    const recipient = recipients.find(r => r.id === recipientId);
-    // TODO: Replace with router.push(`/recipient/${recipientId}`) when Story 2.5 is complete
-    Alert.alert(
-      'Recipient Detail',
-      `Opening detail for ${recipient?.name || 'recipient'}.\n\nRecipient detail screen coming in Story 2.5!`
-    );
+    router.push(`/recipient/${recipientId}`);
   };
 
   // Get gift idea count for a recipient (client-side calculation - MVP approach)

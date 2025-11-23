@@ -132,6 +132,12 @@ export const useRecipientStore = create<RecipientStore>()(
       const now = new Date().toISOString();
       const tempId = generateGuid();
 
+      console.log('🆕 CREATE RECIPIENT - Starting', {
+        tempId,
+        name: data.name,
+        isOnline,
+      });
+
       // Create temporary recipient for optimistic update
       const tempRecipient: Recipient = {
         id: tempId,
@@ -147,41 +153,73 @@ export const useRecipientStore = create<RecipientStore>()(
       };
 
       // Write to SQLite immediately (optimistic update)
+      console.log('💾 Inserting to SQLite with temp ID:', tempId);
       await sqliteService.insertRecipient(tempRecipient);
+      console.log('✅ SQLite insert successful');
 
       // Update store (UI reflects change instantly)
       set({ recipients: [...get().recipients, tempRecipient] });
+      console.log('✅ Store updated with temp recipient');
 
       if (isOnline) {
         // Sync to server
         try {
+          console.log('🌐 Calling backend API...');
           const serverRecipient = await recipientService.createRecipient(data);
-          const mappedRecipient = dtoToRecipient(serverRecipient);
+          console.log('✅ Backend API success', {
+            serverId: serverRecipient.recipientId,
+            tempId,
+            serverRecipient,
+          });
 
-          // Update SQLite and store with server response (includes server ID and timestamp)
-          await sqliteService.updateRecipient(mappedRecipient);
+          const mappedRecipient = dtoToRecipient(serverRecipient);
+          console.log('🔄 Mapped recipient', {
+            mappedId: mappedRecipient.id,
+            mappedRecipient,
+          });
+
+          // Replace temp ID with server ID in SQLite
+          // Must delete+insert because temp ID !== server ID
+          console.log('🗑️ Deleting temp ID from SQLite:', tempId);
+          await sqliteService.deleteRecipient(tempId);
+          console.log('✅ Temp ID deleted');
+
+          console.log('💾 Inserting server recipient to SQLite:', mappedRecipient.id);
+          await sqliteService.insertRecipient(mappedRecipient);
+          console.log('✅ Server recipient inserted to SQLite');
+
+          // Update store with server response (replaces temp recipient with real one)
           set({
             recipients: get().recipients.map(r =>
               r.id === tempId ? mappedRecipient : r
             ),
           });
+          console.log('✅ Store updated with server recipient');
 
           return serverRecipient;
         } catch (apiError) {
-          console.error('❌ Failed to create recipient on server:', apiError);
+          console.error('❌ Backend API failed:', apiError);
+          console.log('🔄 Reverting optimistic update - deleting temp ID:', tempId);
           // Revert optimistic update
           await sqliteService.deleteRecipient(tempId);
           set({ recipients: get().recipients.filter(r => r.id !== tempId) });
+          console.log('✅ Optimistic update reverted');
           throw apiError;
         }
       } else {
+        console.log('📴 Offline mode - queuing for sync');
         // Queue for sync when online
         await offlineQueue.addToQueue('CREATE', 'Recipient', tempId, tempRecipient);
+        console.log('✅ Queued for offline sync');
         // Return temporary recipient as DTO
         return recipientToDto(tempRecipient);
       }
     } catch (error: any) {
-      console.error('❌ Failed to create recipient:', error);
+      console.error('❌ CREATE RECIPIENT FAILED:', {
+        error: error.message,
+        stack: error.stack,
+        data,
+      });
       set({ error: error.message });
       throw error;
     }
@@ -240,26 +278,45 @@ export const useRecipientStore = create<RecipientStore>()(
   },
 
   /**
-   * Delete a recipient
+   * Delete a recipient with optimistic UI and rollback
    */
   deleteRecipient: async (id, isOnline) => {
+    const { recipients } = get();
+    const recipientToDelete = recipients.find(r => r.id === id);
+
+    if (!recipientToDelete) {
+      throw new Error('Recipient not found');
+    }
+
+    // Optimistic update: Remove from store immediately
+    set({ recipients: recipients.filter(r => r.id !== id) });
+
     try {
-      // Delete from SQLite immediately
-      await sqliteService.deleteRecipient(id);
-
-      // Update store
-      set({ recipients: get().recipients.filter(r => r.id !== id) });
-
       if (isOnline) {
-        // Sync to server
+        // Sync to server immediately
         try {
           await apiClient.delete(`/api/recipients/${id}`);
-        } catch (apiError) {
+
+          // Success: Delete from SQLite
+          await sqliteService.deleteRecipient(id);
+
+          // TODO: Delete profile picture from Supabase Storage (Story 2.4 AC-5)
+          // if (recipientToDelete.profilePictureUrl) {
+          //   await supabaseStorageClient.deleteProfilePicture(id);
+          // }
+        } catch (apiError: any) {
           console.error('❌ Failed to delete recipient on server:', apiError);
-          // Keep local deletion (will sync later)
-          await offlineQueue.addToQueue('DELETE', 'Recipient', id, {});
+
+          // Rollback: Re-add recipient to store
+          set({ recipients: [...recipients] });
+
+          // Throw error to show retry dialog
+          throw apiError;
         }
       } else {
+        // Delete from SQLite immediately
+        await sqliteService.deleteRecipient(id);
+
         // Queue for sync when online
         await offlineQueue.addToQueue('DELETE', 'Recipient', id, {});
       }
@@ -315,7 +372,7 @@ const generateGuid = (): string => {
  */
 const dtoToRecipient = (dto: RecipientDto): Recipient => {
   return {
-    id: dto.id,
+    id: dto.recipientId, // Backend uses 'recipientId' not 'id'
     userId: dto.userId,
     name: dto.name,
     relationship: dto.relationship,
@@ -323,8 +380,8 @@ const dtoToRecipient = (dto: RecipientDto): Recipient => {
     anniversary: dto.anniversary,
     hobbiesInterests: dto.interests || [],
     notes: dto.notes,
-    createdAt: new Date().toISOString(), // Not returned by API
-    updatedAt: new Date().toISOString(), // Not returned by API
+    createdAt: dto.createdAt || new Date().toISOString(),
+    updatedAt: dto.updatedAt || new Date().toISOString(),
   };
 };
 
@@ -333,7 +390,7 @@ const dtoToRecipient = (dto: RecipientDto): Recipient => {
  */
 const recipientToDto = (recipient: Recipient): RecipientDto => {
   return {
-    id: recipient.id,
+    recipientId: recipient.id, // Backend uses 'recipientId' not 'id'
     userId: recipient.userId,
     name: recipient.name,
     relationship: recipient.relationship,
@@ -341,6 +398,8 @@ const recipientToDto = (recipient: Recipient): RecipientDto => {
     anniversary: recipient.anniversary,
     interests: recipient.hobbiesInterests || [],
     notes: recipient.notes,
+    createdAt: recipient.createdAt,
+    updatedAt: recipient.updatedAt,
   };
 };
 

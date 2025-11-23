@@ -6,7 +6,7 @@
  * Returned by GET /api/recipients and POST /api/recipients
  */
 export interface RecipientDto {
-  id: string; // UUID from backend (recipientId)
+  recipientId: string; // UUID from backend (primary key)
   userId: string; // UUID from backend
   name: string;
   relationship: string; // Family, Friend, Colleague, Other, Unknown
@@ -15,6 +15,8 @@ export interface RecipientDto {
   anniversary?: string; // ISO date string (date only, no time)
   interests: string[]; // Array of interest tags
   notes?: string; // Optional multiline text
+  createdAt?: string; // ISO timestamp from backend
+  updatedAt?: string; // ISO timestamp from backend
 }
 
 /**

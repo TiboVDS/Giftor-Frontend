@@ -57,7 +57,7 @@ describe('RecipientStore', () => {
     });
 
     it('should sync with API when online', async () => {
-      const apiRecipients = [{ ...mockRecipient, name: 'John Doe Updated' }];
+      const apiRecipients = [{ ...mockRecipient, id: mockRecipient.id, name: 'John Doe Updated' }];
 
       (sqliteService.getRecipients as jest.Mock).mockResolvedValue([mockRecipient]);
       (apiClient.get as jest.Mock).mockResolvedValue({
@@ -164,7 +164,7 @@ describe('RecipientStore', () => {
         await result.current.createRecipient(newRecipientData, true); // Online
       });
 
-      // Should write to SQLite
+      // Should write to SQLite with temp ID first
       expect(sqliteService.insertRecipient).toHaveBeenCalled();
 
       // Wait for API sync
@@ -172,8 +172,9 @@ describe('RecipientStore', () => {
         expect(apiClient.post).toHaveBeenCalled();
       });
 
-      // Should update with server response (store adds extra fields like birthday, anniversary, notes)
-      expect(sqliteService.updateRecipient).toHaveBeenCalledWith(
+      // Should delete temp ID and insert server ID (delete+insert pattern to replace UUID)
+      expect(sqliteService.deleteRecipient).toHaveBeenCalled();
+      expect(sqliteService.insertRecipient).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'server-123',
           userId: 'user-1',

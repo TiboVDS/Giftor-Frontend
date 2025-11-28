@@ -2,6 +2,7 @@ import '../global.css';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import NetInfo from '@react-native-community/netinfo';
 import * as sqliteService from '@/services/database/sqliteService';
 import * as syncService from '@/services/sync/syncService';
@@ -94,9 +95,11 @@ export default function RootLayout() {
   }, [isAuthenticated, segments, navigationState?.key, hasRestoredSession, isLoading]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <OfflineBanner />
-      <Stack screenOptions={{ headerShown: false }} />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <OfflineBanner />
+        <Stack screenOptions={{ headerShown: false }} />
+      </View>
+    </GestureHandlerRootView>
   );
 }

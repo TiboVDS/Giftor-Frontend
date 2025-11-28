@@ -14,11 +14,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 export default function PeopleScreen() {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // Store selectors
   const {
     recipients,
     fetchRecipients,
+    deleteRecipient,
     isLoading,
     error,
     filteredRecipients,
@@ -30,9 +32,15 @@ export default function PeopleScreen() {
   // Fetch recipients when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (user?.id) {
-        fetchRecipients(user.id, isOnline);
-      }
+      const loadRecipients = async () => {
+        if (user?.id) {
+          // Reset loaded state to show loading indicator
+          setHasInitiallyLoaded(false);
+          await fetchRecipients(user.id, isOnline);
+          setHasInitiallyLoaded(true);
+        }
+      };
+      loadRecipients();
     }, [user?.id, isOnline])
   );
 
@@ -60,14 +68,9 @@ export default function PeopleScreen() {
     router.push('/add-recipient');
   };
 
-  // Navigation to recipient detail (placeholder for Story 2.5)
+  // Navigation to recipient detail
   const handleRecipientPress = (recipientId: string) => {
-    const recipient = recipients.find(r => r.id === recipientId);
-    // TODO: Replace with router.push(`/recipient/${recipientId}`) when Story 2.5 is complete
-    Alert.alert(
-      'Recipient Detail',
-      `Opening detail for ${recipient?.name || 'recipient'}.\n\nRecipient detail screen coming in Story 2.5!`
-    );
+    router.push(`/recipient/${recipientId}`);
   };
 
   // Get gift idea count for a recipient (client-side calculation - MVP approach)
@@ -75,6 +78,42 @@ export default function PeopleScreen() {
     // TODO: Implement gift idea count from giftIdeaStore when available
     // For now, return 0 as gift ideas feature is in Epic 3
     return 0;
+  };
+
+  // Handle delete from swipe gesture
+  const handleDelete = (recipientId: string, recipientName: string) => {
+    const giftIdeaCount = getGiftIdeaCount(recipientId);
+
+    // Build confirmation message based on gift idea count
+    let message = '';
+    if (giftIdeaCount === 0) {
+      message = `This will permanently delete ${recipientName}.`;
+    } else if (giftIdeaCount > 10) {
+      message = `This will delete ${giftIdeaCount} gift ideas. Are you sure?`;
+    } else {
+      message = `This will permanently delete ${recipientName} and all ${giftIdeaCount} gift ideas for them. This cannot be undone.`;
+    }
+
+    Alert.alert(
+      `Delete ${recipientName}?`,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRecipient(recipientId, isOnline);
+              Alert.alert('Success', `✓ ${recipientName} deleted`);
+            } catch (error) {
+              console.error('Delete failed:', error);
+              Alert.alert('Error', `Couldn't delete ${recipientName}. Try again?`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Retry handler for error state
@@ -87,8 +126,8 @@ export default function PeopleScreen() {
   // Get filtered recipients
   const displayRecipients = filteredRecipients();
 
-  // Loading state (skeleton cards)
-  if (isLoading && recipients.length === 0) {
+  // Loading state (skeleton cards) - show loading if not loaded yet OR if loading with no recipients
+  if (!hasInitiallyLoaded || (isLoading && recipients.length === 0)) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
         <View className="flex-1">
@@ -113,8 +152,8 @@ export default function PeopleScreen() {
     );
   }
 
-  // Error state
-  if (error && recipients.length === 0) {
+  // Error state - only show error if we've tried loading and there's an error with no cached data
+  if (hasInitiallyLoaded && error && recipients.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
         <View className="flex-1">
@@ -188,6 +227,7 @@ export default function PeopleScreen() {
           <RecipientList
             recipients={displayRecipients}
             onRecipientPress={handleRecipientPress}
+            onDelete={handleDelete}
             getGiftIdeaCount={getGiftIdeaCount}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}

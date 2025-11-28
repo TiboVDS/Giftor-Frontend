@@ -57,7 +57,7 @@ describe('RecipientStore', () => {
     });
 
     it('should sync with API when online', async () => {
-      const apiRecipients = [{ ...mockRecipient, recipientId: mockRecipient.id, name: 'John Doe Updated' }];
+      const apiRecipients = [{ ...mockRecipient, id: mockRecipient.id, name: 'John Doe Updated' }];
 
       (sqliteService.getRecipients as jest.Mock).mockResolvedValue([mockRecipient]);
       (apiClient.get as jest.Mock).mockResolvedValue({
@@ -143,7 +143,7 @@ describe('RecipientStore', () => {
 
       const serverRecipient = {
         ...newRecipientData,
-        recipientId: 'server-123',
+        id: 'server-123',
         userId: 'user-1',
         hobbiesInterests: [],
         createdAt: '2025-11-14T10:00:00Z',

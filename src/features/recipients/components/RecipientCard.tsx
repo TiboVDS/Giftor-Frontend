@@ -13,6 +13,8 @@ export interface RecipientCardProps {
   giftIdeaCount: number;
   /** Callback when card is tapped */
   onPress: () => void;
+  /** Accessibility hint for screen readers (e.g., "Swipe left to delete") */
+  accessibilityHint?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface RecipientCardProps {
  *   onPress={() => navigateToDetail(recipient.id)}
  * />
  */
-export function RecipientCard({ recipient, giftIdeaCount, onPress }: RecipientCardProps) {
+export function RecipientCard({ recipient, giftIdeaCount, onPress, accessibilityHint }: RecipientCardProps) {
   const { name, relationship, profilePictureUrl, birthday } = recipient;
 
   // Format birthday if available
@@ -58,6 +60,7 @@ export function RecipientCard({ recipient, giftIdeaCount, onPress }: RecipientCa
       className="flex-row items-center bg-white p-4 rounded-lg shadow-sm"
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      accessibilityHint={accessibilityHint}
     >
       {/* Profile Picture or Initials Placeholder */}
       <View className="mr-4">

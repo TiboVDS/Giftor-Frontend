@@ -1,10 +1,11 @@
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipientStore } from '@/features/recipients/stores/recipientStore';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Image } from 'expo-image';
 import { showConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -16,21 +17,40 @@ export default function RecipientDetailScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Get recipient from store
-  const { recipients, deleteRecipient } = useRecipientStore();
+  const { recipients, deleteRecipient, fetchRecipients } = useRecipientStore();
   const { isOnline } = useNetworkStatus();
+  const { user } = useAuthStore();
   const recipient = recipients.find(r => r.id === id);
 
+  // Refresh recipient data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const loadRecipient = async () => {
+        if (user?.id) {
+          setIsLoading(true);
+          setError(null);
+          await fetchRecipients(user.id, isOnline);
+          setIsLoading(false);
+        }
+      };
+      loadRecipient();
+    }, [user?.id, isOnline])
+  );
+
   useEffect(() => {
-    // Simulate loading (check if recipient exists)
-    if (recipient) {
-      setIsLoading(false);
-      setError(null);
-    } else {
-      // Recipient not found
-      setIsLoading(false);
+    // Check if recipient exists after loading completes
+    if (!isLoading && !recipient) {
       setError('Recipient not found');
+    } else if (recipient) {
+      console.log('📸 Recipient loaded:', {
+        id: recipient.id,
+        name: recipient.name,
+        profilePictureUrl: recipient.profilePictureUrl,
+        hasUrl: !!recipient.profilePictureUrl
+      });
+      setError(null);
     }
-  }, [recipient, id]);
+  }, [recipient, id, isLoading]);
 
   // Navigate back
   const handleBack = () => {
@@ -69,26 +89,22 @@ export default function RecipientDetailScreen() {
       onConfirm: async () => {
         setIsDeleting(true);
 
+        // Navigate back immediately to avoid "Recipient not found" flash
+        router.back();
+
         try {
           // Delete recipient (optimistic UI with rollback)
           await deleteRecipient(id, isOnline);
 
           // Show success toast
           Alert.alert('Success', `✓ ${recipient.name} deleted`);
-
-          // Navigate back to People list
-          router.back();
         } catch (error: any) {
           console.error('Failed to delete recipient:', error);
 
-          // Show error dialog with retry option
+          // Show error (user is already on People list)
           Alert.alert(
             'Error',
-            `Couldn't delete ${recipient.name}. Try again?`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Retry', onPress: () => handleDelete() },
-            ]
+            `Couldn't delete ${recipient.name}. Try again?`
           );
         } finally {
           setIsDeleting(false);
@@ -220,8 +236,15 @@ export default function RecipientDetailScreen() {
             <Image
               source={{ uri: recipient.profilePictureUrl }}
               className="w-30 h-30 rounded-full"
-              style={{ width: 120, height: 120 }}
+              style={{ width: 120, height: 120, borderRadius: 60 }}
               contentFit="cover"
+              onError={(error) => {
+                console.error('Image load error:', error);
+                console.log('Failed URL:', recipient.profilePictureUrl);
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', recipient.profilePictureUrl);
+              }}
             />
           ) : (
             <View

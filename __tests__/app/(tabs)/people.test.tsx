@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
+import { useEffect } from 'react';
 import PeopleScreen from '@/app/(tabs)/people';
 import { useRecipientStore } from '@/features/recipients/stores/recipientStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -8,16 +9,25 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 jest.mock('@/features/recipients/stores/recipientStore');
 jest.mock('@/features/auth/stores/authStore');
 jest.mock('@/hooks/useNetworkStatus');
-jest.mock('expo-router', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    back: jest.fn(),
-  }),
-  useFocusEffect: jest.fn((callback) => {
-    // Call the callback immediately in tests
-    callback();
-  }),
-}));
+
+// Mock expo-router with a proper useFocusEffect that uses useEffect internally
+jest.mock('expo-router', () => {
+  const { useEffect } = require('react');
+  return {
+    useRouter: () => ({
+      push: jest.fn(),
+      back: jest.fn(),
+    }),
+    // Implement useFocusEffect as a useEffect wrapper that runs callback once
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      useEffect(() => {
+        const cleanup = callback();
+        return typeof cleanup === 'function' ? cleanup : undefined;
+        // Empty deps = run once on mount, matching focus behavior
+      }, []);
+    },
+  };
+});
 
 // Mock components
 jest.mock('@/features/recipients/components/RecipientSearchBar', () => ({
@@ -64,7 +74,7 @@ describe('PeopleScreen', () => {
       searchQuery: '',
       sortOption: 'name-asc' as any,
       filteredRecipients: jest.fn(() => []),
-      fetchRecipients: jest.fn(),
+      fetchRecipients: jest.fn().mockResolvedValue(undefined),
       createRecipient: jest.fn(),
       updateRecipient: jest.fn(),
       deleteRecipient: jest.fn(),
@@ -90,18 +100,30 @@ describe('PeopleScreen', () => {
     });
   });
 
-  it('renders with correct header', () => {
+  it('renders with correct header', async () => {
     render(<PeopleScreen />);
-    expect(screen.getByText('People')).toBeTruthy();
+
+    // Wait for async state updates to settle
+    await waitFor(() => {
+      expect(screen.getByText('People')).toBeTruthy();
+    });
   });
 
-  it('displays placeholder text when no recipients', () => {
+  it('displays placeholder text when no recipients', async () => {
     render(<PeopleScreen />);
-    expect(screen.getByText('No recipients yet')).toBeTruthy();
+
+    // Wait for loading to complete and empty state to render
+    await waitFor(() => {
+      expect(screen.getByText('No recipients yet')).toBeTruthy();
+    });
   });
 
-  it('displays add button', () => {
+  it('displays add button', async () => {
     const { getByLabelText } = render(<PeopleScreen />);
-    expect(getByLabelText('Add recipient')).toBeTruthy();
+
+    // Wait for component to finish loading
+    await waitFor(() => {
+      expect(getByLabelText('Add recipient')).toBeTruthy();
+    });
   });
 });

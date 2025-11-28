@@ -6,7 +6,7 @@
  * Returned by GET /api/recipients and POST /api/recipients
  */
 export interface RecipientDto {
-  recipientId: string; // UUID from backend (primary key)
+  id: string; // UUID from backend (primary key)
   userId: string; // UUID from backend
   name: string;
   relationship: string; // Family, Friend, Colleague, Other, Unknown

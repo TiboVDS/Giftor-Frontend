@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipientStore } from '@/features/recipients/stores/recipientStore';
 import AddRecipientForm from '@/features/recipients/components/AddRecipientForm';
@@ -14,6 +14,18 @@ export default function EditRecipientScreen() {
   // Get recipient from store
   const { recipients } = useRecipientStore();
   const recipient = recipients.find(r => r.id === id);
+
+  // Log recipient data for debugging
+  useEffect(() => {
+    if (recipient) {
+      console.log('📝 Edit screen - Recipient data:', {
+        id: recipient.id,
+        name: recipient.name,
+        profilePictureUrl: recipient.profilePictureUrl,
+        hasProfilePicture: !!recipient.profilePictureUrl,
+      });
+    }
+  }, [recipient]);
 
   // Navigate back
   const handleBack = () => {

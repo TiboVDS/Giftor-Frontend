@@ -8,6 +8,7 @@ import * as recipientService from '../services/recipientService';
 import { RecipientDto, CreateRecipientRequest } from '../types/recipient.types';
 import { useAuthStore } from '../../auth/stores/authStore';
 import apiClient from '../../../services/api/apiClient';
+import { deleteProfilePicture } from '../../../services/supabase/storageClient';
 
 export type SortOption = 'name-asc' | 'name-desc' | 'birthday' | 'recent';
 
@@ -167,7 +168,7 @@ export const useRecipientStore = create<RecipientStore>()(
           console.log('🌐 Calling backend API...');
           const serverRecipient = await recipientService.createRecipient(data);
           console.log('✅ Backend API success', {
-            serverId: serverRecipient.recipientId,
+            serverId: serverRecipient.id,
             tempId,
             serverRecipient,
           });
@@ -300,10 +301,19 @@ export const useRecipientStore = create<RecipientStore>()(
           // Success: Delete from SQLite
           await sqliteService.deleteRecipient(id);
 
-          // TODO: Delete profile picture from Supabase Storage (Story 2.4 AC-5)
-          // if (recipientToDelete.profilePictureUrl) {
-          //   await supabaseStorageClient.deleteProfilePicture(id);
-          // }
+          // Delete profile picture from Supabase Storage
+          if (recipientToDelete.profilePictureUrl) {
+            const userId = useAuthStore.getState().user?.id;
+            if (userId) {
+              try {
+                await deleteProfilePicture(id, userId);
+                console.log('✅ Profile picture deleted from Supabase Storage');
+              } catch (storageError) {
+                // Log error but don't fail the delete operation
+                console.warn('⚠️ Failed to delete profile picture from storage:', storageError);
+              }
+            }
+          }
         } catch (apiError: any) {
           console.error('❌ Failed to delete recipient on server:', apiError);
 
@@ -372,10 +382,11 @@ const generateGuid = (): string => {
  */
 const dtoToRecipient = (dto: RecipientDto): Recipient => {
   return {
-    id: dto.recipientId, // Backend uses 'recipientId' not 'id'
+    id: dto.id,
     userId: dto.userId,
     name: dto.name,
     relationship: dto.relationship,
+    profilePictureUrl: dto.profilePictureUrl,
     birthday: dto.birthday,
     anniversary: dto.anniversary,
     hobbiesInterests: dto.interests || [],
@@ -390,10 +401,11 @@ const dtoToRecipient = (dto: RecipientDto): Recipient => {
  */
 const recipientToDto = (recipient: Recipient): RecipientDto => {
   return {
-    recipientId: recipient.id, // Backend uses 'recipientId' not 'id'
+    id: recipient.id,
     userId: recipient.userId,
     name: recipient.name,
     relationship: recipient.relationship,
+    profilePictureUrl: recipient.profilePictureUrl,
     birthday: recipient.birthday,
     anniversary: recipient.anniversary,
     interests: recipient.hobbiesInterests || [],

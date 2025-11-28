@@ -2,10 +2,11 @@
 // These mirror the backend entities with a subset of fields for mobile use
 
 export interface Recipient {
-  id: string; // Maps to RecipientId (GUID)
-  userId: string; // Maps to UserId (GUID)
+  id: string; // Maps to Id (GUID) - primary key
+  userId: string; // Foreign key to User.Id
   name: string;
   relationship: string;
+  profilePictureUrl?: string; // URL to profile picture in Supabase Storage
   birthday?: string; // ISO date string
   anniversary?: string; // ISO date string
   hobbiesInterests: string[]; // Maps to Interests array
@@ -15,9 +16,9 @@ export interface Recipient {
 }
 
 export interface Occasion {
-  id: string; // Maps to OccasionId (GUID)
-  recipientId: string; // Maps to RecipientId (GUID)
-  userId: string; // Maps to UserId (GUID)
+  id: string; // Maps to Id (GUID) - primary key
+  recipientId: string; // Foreign key to Recipient.Id
+  userId: string; // Foreign key to User.Id
   name: string;
   occasionType: string;
   date?: string; // Maps to OccasionDate, ISO date string, nullable for unscheduled
@@ -27,10 +28,10 @@ export interface Occasion {
 }
 
 export interface GiftIdea {
-  id: string; // Maps to GiftIdeaId (GUID)
-  userId: string; // Maps to UserId (GUID)
-  recipientId: string; // Maps to RecipientId (GUID)
-  occasionId?: string; // Maps to OccasionId (GUID), nullable for floating ideas
+  id: string; // Maps to Id (GUID) - primary key
+  userId: string; // Foreign key to User.Id
+  recipientId: string; // Foreign key to Recipient.Id
+  occasionId?: string; // Foreign key to Occasion.Id, nullable for floating ideas
   giftText: string; // Maps to IdeaText
   notes?: string;
   productTitle?: string; // Will be enriched from product API (future)

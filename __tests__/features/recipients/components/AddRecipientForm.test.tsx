@@ -45,12 +45,13 @@ describe('AddRecipientForm', () => {
   });
 
   it('should render all form fields', () => {
-    const { getByPlaceholderText, getByText } = render(
+    const { getByPlaceholderText, getByText, getByLabelText } = render(
       <AddRecipientForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />
     );
 
     expect(getByPlaceholderText('e.g., Emma Johnson')).toBeTruthy();
-    expect(getByPlaceholderText('Enter image URL')).toBeTruthy();
+    expect(getByLabelText('Change profile picture')).toBeTruthy(); // Profile picture avatar
+    expect(getByText('Add Photo')).toBeTruthy(); // Profile picture button text
     expect(getByPlaceholderText('Any additional details...')).toBeTruthy();
     expect(getByText('Save')).toBeTruthy();
     expect(getByText('Cancel')).toBeTruthy();

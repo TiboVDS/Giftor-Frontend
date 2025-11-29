@@ -1,26 +1,48 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipientStore } from '@/features/recipients/stores/recipientStore';
+import { useOccasionStore } from '@/features/occasions/stores/occasionStore';
+import { useGiftIdeaStore } from '@/features/gift-ideas/stores/giftIdeaStore';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Image } from 'expo-image';
 import { showConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { OccasionsSection } from '@/features/recipients/components/OccasionsSection';
+import { GiftIdeasSection } from '@/features/recipients/components/GiftIdeasSection';
 
 export default function RecipientDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Get recipient from store
   const { recipients, deleteRecipient, fetchRecipients } = useRecipientStore();
+  const { fetchOccasions } = useOccasionStore();
+  const { fetchGiftIdeas } = useGiftIdeaStore();
+  const { giftIdeas } = useGiftIdeaStore();
   const { isOnline } = useNetworkStatus();
   const { user } = useAuthStore();
   const recipient = recipients.find(r => r.id === id);
+
+  // Get gift idea count for this recipient (for delete message)
+  const giftIdeaCount = giftIdeas.filter(g => g.recipientId === id).length;
+
+  // Refresh all data for this screen
+  const refreshAllData = useCallback(async () => {
+    if (user?.id) {
+      await Promise.all([
+        fetchRecipients(user.id, isOnline),
+        fetchOccasions(user.id, isOnline),
+        fetchGiftIdeas(user.id, isOnline),
+      ]);
+    }
+  }, [user?.id, isOnline, fetchRecipients, fetchOccasions, fetchGiftIdeas]);
 
   // Refresh recipient data when screen comes into focus
   useFocusEffect(
@@ -29,13 +51,20 @@ export default function RecipientDetailScreen() {
         if (user?.id) {
           setIsLoading(true);
           setError(null);
-          await fetchRecipients(user.id, isOnline);
+          await refreshAllData();
           setIsLoading(false);
         }
       };
       loadRecipient();
-    }, [user?.id, isOnline])
+    }, [user?.id, refreshAllData])
   );
+
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refreshAllData();
+    setIsRefreshing(false);
+  }, [refreshAllData]);
 
   useEffect(() => {
     // Check if recipient exists after loading completes
@@ -65,9 +94,6 @@ export default function RecipientDetailScreen() {
   // Handle delete button press
   const handleDelete = () => {
     if (!recipient || !id) return;
-
-    // Get gift idea count (placeholder - will be implemented in Epic 3)
-    const giftIdeaCount = 0; // TODO: Get actual count from giftIdeaStore when available
 
     // Build confirmation message based on gift idea count
     let message: string;
@@ -228,7 +254,17 @@ export default function RecipientDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#3B82F6']}
+            tintColor="#3B82F6"
+          />
+        }
+      >
         {/* Profile Section */}
         <View className="items-center py-6 px-6 border-b border-gray-100">
           {/* Profile Picture */}
@@ -340,40 +376,11 @@ export default function RecipientDetailScreen() {
           )}
         </View>
 
-        {/* Placeholder Sections */}
-        <View className="px-6 py-4">
-          {/* Occasions Placeholder */}
-          <View className="mb-6">
-            <Text className="text-lg font-semibold text-gray-900 mb-3">
-              Occasions
-            </Text>
-            <View className="bg-gray-50 rounded-lg p-4 items-center">
-              <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
-              <Text className="text-gray-500 text-sm mt-2">
-                No occasions yet
-              </Text>
-              <Text className="text-gray-400 text-xs mt-1">
-                Coming in Epic 2, Stories 2.6-2.8
-              </Text>
-            </View>
-          </View>
+        {/* Occasions Section */}
+        <OccasionsSection recipientId={id!} />
 
-          {/* Gift Ideas Placeholder */}
-          <View className="mb-6">
-            <Text className="text-lg font-semibold text-gray-900 mb-3">
-              Gift Ideas
-            </Text>
-            <View className="bg-gray-50 rounded-lg p-4 items-center">
-              <Ionicons name="gift-outline" size={32} color="#9CA3AF" />
-              <Text className="text-gray-500 text-sm mt-2">
-                No gift ideas yet
-              </Text>
-              <Text className="text-gray-400 text-xs mt-1">
-                Coming in Epic 3
-              </Text>
-            </View>
-          </View>
-        </View>
+        {/* Gift Ideas Section */}
+        <GiftIdeasSection recipientId={id!} />
 
         {/* Delete Button */}
         <View className="px-6 py-4 mb-8">

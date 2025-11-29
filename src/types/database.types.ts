@@ -20,8 +20,9 @@ export interface Occasion {
   recipientId: string; // Foreign key to Recipient.Id
   userId: string; // Foreign key to User.Id
   name: string;
-  occasionType: string;
-  date?: string; // Maps to OccasionDate, ISO date string, nullable for unscheduled
+  type: string; // Occasion type (Birthday, Anniversary, etc.)
+  date?: string; // ISO date string (yyyy-MM-dd), nullable for unscheduled
+  reminderIntervals: number[]; // Days before occasion to send reminders, e.g., [14, 7, 2]
   isRecurring: boolean; // Derived from business logic (will be implemented later)
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string

@@ -15,7 +15,7 @@ describe('OccasionStore', () => {
     recipientId: 'recipient-1',
     userId: 'user-1',
     name: 'Birthday',
-    occasionType: 'birthday',
+    type: 'birthday',
     date: '2025-12-25',
     isRecurring: true,
     createdAt: '2025-11-14T10:00:00Z',
@@ -50,7 +50,32 @@ describe('OccasionStore', () => {
     });
 
     it('should sync with API when online', async () => {
-      const apiOccasions = [{ ...mockOccasion, name: 'Birthday Updated' }];
+      // API returns date as yyyy-MM-dd string
+      const apiOccasions = [{
+        id: '123',
+        recipientId: 'recipient-1',
+        userId: 'user-1',
+        name: 'Birthday Updated',
+        type: 'birthday',
+        date: '2025-12-25',
+        reminderIntervals: [14, 7, 2],
+        createdAt: '2025-11-14T10:00:00Z',
+        updatedAt: '2025-11-14T10:00:00Z',
+      }];
+
+      // Expected transformed format for SQLite (adds isRecurring)
+      const expectedTransformed = [{
+        id: '123',
+        recipientId: 'recipient-1',
+        userId: 'user-1',
+        name: 'Birthday Updated',
+        type: 'birthday',
+        date: '2025-12-25',
+        reminderIntervals: [14, 7, 2],
+        isRecurring: false,
+        createdAt: '2025-11-14T10:00:00Z',
+        updatedAt: '2025-11-14T10:00:00Z',
+      }];
 
       (sqliteService.getOccasions as jest.Mock).mockResolvedValue([mockOccasion]);
       (apiClient.get as jest.Mock).mockResolvedValue({
@@ -67,10 +92,10 @@ describe('OccasionStore', () => {
       // First loads from SQLite
       expect(sqliteService.getOccasions).toHaveBeenCalledWith('user-1');
 
-      // Then syncs with API
+      // Then syncs with API (with transformed data)
       await waitFor(() => {
         expect(apiClient.get).toHaveBeenCalledWith('/api/occasions');
-        expect(sqliteService.upsertOccasions).toHaveBeenCalledWith(apiOccasions);
+        expect(sqliteService.upsertOccasions).toHaveBeenCalledWith(expectedTransformed);
         expect(result.current.occasions[0].name).toBe('Birthday Updated');
       });
     });
@@ -82,7 +107,7 @@ describe('OccasionStore', () => {
         recipientId: 'recipient-1',
         userId: 'user-1',
         name: 'Anniversary',
-        occasionType: 'anniversary',
+        type: 'anniversary',
         date: '2026-01-01',
         isRecurring: false,
       };
@@ -119,14 +144,35 @@ describe('OccasionStore', () => {
         recipientId: 'recipient-1',
         userId: 'user-1',
         name: 'Anniversary',
-        occasionType: 'anniversary',
+        type: 'anniversary',
         date: '2026-01-01',
+        reminderIntervals: [14, 7, 2],
         isRecurring: false,
       };
 
-      const serverOccasion = {
-        ...newOccasionData,
+      // API returns backend format (date as yyyy-MM-dd string)
+      const serverApiResponse = {
         id: 'server-123',
+        recipientId: 'recipient-1',
+        userId: 'user-1',
+        name: 'Anniversary',
+        type: 'anniversary',
+        date: '2026-01-01',
+        reminderIntervals: [14, 7, 2],
+        createdAt: '2025-11-14T10:00:00Z',
+        updatedAt: '2025-11-14T10:00:00Z',
+      };
+
+      // Expected transformed format for SQLite (adds isRecurring)
+      const expectedTransformed = {
+        id: 'server-123',
+        recipientId: 'recipient-1',
+        userId: 'user-1',
+        name: 'Anniversary',
+        type: 'anniversary',
+        date: '2026-01-01',
+        reminderIntervals: [14, 7, 2],
+        isRecurring: false,
         createdAt: '2025-11-14T10:00:00Z',
         updatedAt: '2025-11-14T10:00:00Z',
       };
@@ -135,9 +181,9 @@ describe('OccasionStore', () => {
         Promise.resolve(o)
       );
       (apiClient.post as jest.Mock).mockResolvedValue({
-        data: { data: serverOccasion },
+        data: { data: serverApiResponse },
       });
-      (sqliteService.updateOccasion as jest.Mock).mockResolvedValue(serverOccasion);
+      (sqliteService.updateOccasion as jest.Mock).mockResolvedValue(expectedTransformed);
 
       const { result } = renderHook(() => useOccasionStore());
 
@@ -151,8 +197,8 @@ describe('OccasionStore', () => {
       // Should sync to API
       expect(apiClient.post).toHaveBeenCalledWith('/api/occasions', newOccasionData);
 
-      // Should update with server response
-      expect(sqliteService.updateOccasion).toHaveBeenCalledWith(serverOccasion);
+      // Should update with transformed server response
+      expect(sqliteService.updateOccasion).toHaveBeenCalledWith(expectedTransformed);
 
       // Should update store with server ID
       expect(result.current.occasions[0].id).toBe('server-123');

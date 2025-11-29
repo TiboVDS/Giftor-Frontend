@@ -27,12 +27,26 @@ describe('SQLiteService', () => {
 
   describe('initDatabase', () => {
     it('should initialize database and create all tables', async () => {
+      // Mock PRAGMA table_info to return columns including reminder_intervals (no migration needed)
+      mockDb.getAllAsync.mockResolvedValue([
+        { name: 'id' },
+        { name: 'recipient_id' },
+        { name: 'user_id' },
+        { name: 'name' },
+        { name: 'occasion_type' },
+        { name: 'date' },
+        { name: 'reminder_intervals' },
+        { name: 'is_recurring' },
+        { name: 'created_at' },
+        { name: 'updated_at' },
+      ]);
+
       await sqliteService.initDatabase();
 
       // Verify database was opened
       expect(SQLite.openDatabaseAsync).toHaveBeenCalledWith('giftor.db');
 
-      // Verify all tables were created (4 tables + 4 index sets)
+      // Verify all tables were created (4 tables + 4 index sets = 8 calls)
       expect(mockDb.execAsync).toHaveBeenCalledTimes(8);
 
       // Verify recipients table creation
@@ -54,12 +68,43 @@ describe('SQLiteService', () => {
       expect(mockDb.execAsync).toHaveBeenCalledWith(
         expect.stringContaining('CREATE TABLE IF NOT EXISTS pending_sync_actions')
       );
+
+      // Verify migration check was performed
+      expect(mockDb.getAllAsync).toHaveBeenCalledWith(
+        'PRAGMA table_info(occasions)'
+      );
+    });
+
+    it('should run migration to add reminder_intervals column if missing', async () => {
+      // Mock PRAGMA table_info to return columns WITHOUT reminder_intervals
+      mockDb.getAllAsync.mockResolvedValue([
+        { name: 'id' },
+        { name: 'recipient_id' },
+        { name: 'user_id' },
+        { name: 'name' },
+        { name: 'occasion_type' },
+        { name: 'date' },
+        { name: 'is_recurring' },
+        { name: 'created_at' },
+        { name: 'updated_at' },
+      ]);
+
+      await sqliteService.initDatabase();
+
+      // Verify migration was run (8 table/index creates + 1 ALTER TABLE)
+      expect(mockDb.execAsync).toHaveBeenCalledTimes(9);
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('ALTER TABLE occasions ADD COLUMN reminder_intervals')
+      );
     });
   });
 
   describe('Recipient CRUD Operations', () => {
     beforeEach(async () => {
+      // Mock PRAGMA for migration check
+      mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'reminder_intervals' }]);
       await sqliteService.initDatabase();
+      mockDb.getAllAsync.mockReset();
     });
 
     it('should insert a recipient', async () => {
@@ -184,7 +229,10 @@ describe('SQLiteService', () => {
 
   describe('Pending Sync Actions', () => {
     beforeEach(async () => {
+      // Mock PRAGMA for migration check
+      mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'reminder_intervals' }]);
       await sqliteService.initDatabase();
+      mockDb.getAllAsync.mockReset();
     });
 
     it('should insert a sync action', async () => {
@@ -237,7 +285,10 @@ describe('SQLiteService', () => {
 
   describe('clearAllData', () => {
     beforeEach(async () => {
+      // Mock PRAGMA for migration check
+      mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'reminder_intervals' }]);
       await sqliteService.initDatabase();
+      mockDb.getAllAsync.mockReset();
     });
 
     it('should delete all data from all tables in correct order', async () => {

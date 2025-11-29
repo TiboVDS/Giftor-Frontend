@@ -4,6 +4,23 @@ import * as sqliteService from '../../../services/database/sqliteService';
 import * as offlineQueue from '../../../services/sync/offlineQueue';
 import apiClient from '../../../services/api/apiClient';
 
+/**
+ * Transform API response to frontend Occasion type.
+ * Adds isRecurring (derived field not returned by API).
+ */
+const transformApiOccasion = (apiOccasion: any): Occasion => ({
+  id: apiOccasion.id,
+  recipientId: apiOccasion.recipientId,
+  userId: apiOccasion.userId,
+  name: apiOccasion.name,
+  type: apiOccasion.type,
+  date: apiOccasion.date || undefined,
+  reminderIntervals: apiOccasion.reminderIntervals || [14, 7, 2],
+  isRecurring: false, // Derived on frontend for now
+  createdAt: apiOccasion.createdAt,
+  updatedAt: apiOccasion.updatedAt,
+});
+
 interface OccasionStore {
   occasions: Occasion[];
   isLoading: boolean;
@@ -39,8 +56,8 @@ export const useOccasionStore = create<OccasionStore>((set, get) => ({
       if (isOnline) {
         set({ isSyncing: true });
         try {
-          const response = await apiClient.get<{ data: Occasion[] }>('/api/occasions');
-          const apiOccasions = response.data.data;
+          const response = await apiClient.get<{ data: any[] }>('/api/occasions');
+          const apiOccasions = response.data.data.map(transformApiOccasion);
 
           // Update SQLite with API data
           await sqliteService.upsertOccasions(apiOccasions);
@@ -79,8 +96,8 @@ export const useOccasionStore = create<OccasionStore>((set, get) => ({
 
       if (isOnline) {
         try {
-          const response = await apiClient.post<{ data: Occasion }>('/api/occasions', data);
-          const serverOccasion = response.data.data;
+          const response = await apiClient.post<{ data: any }>('/api/occasions', data);
+          const serverOccasion = transformApiOccasion(response.data.data);
 
           await sqliteService.updateOccasion(serverOccasion);
           set({
@@ -123,11 +140,11 @@ export const useOccasionStore = create<OccasionStore>((set, get) => ({
 
       if (isOnline) {
         try {
-          const response = await apiClient.put<{ data: Occasion }>(
+          const response = await apiClient.put<{ data: any }>(
             `/api/occasions/${updatedOccasion.id}`,
             updatedOccasion
           );
-          const serverOccasion = response.data.data;
+          const serverOccasion = transformApiOccasion(response.data.data);
 
           await sqliteService.updateOccasion(serverOccasion);
           set({

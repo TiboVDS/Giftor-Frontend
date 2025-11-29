@@ -54,10 +54,10 @@ function getDaysUntilNext(dateString: string): number {
  * />
  */
 export function OccasionCard({ occasion, onPress }: OccasionCardProps) {
-  const { name, occasionType, date, isRecurring } = occasion;
+  const { name, type, date, isRecurring } = occasion;
 
   // Get colors for occasion type badge
-  const typeColors = OCCASION_TYPE_COLORS[occasionType] || OCCASION_TYPE_COLORS.Custom;
+  const typeColors = OCCASION_TYPE_COLORS[type] || OCCASION_TYPE_COLORS.Custom;
 
   // Format date and calculate days until
   let formattedDate = 'No date set';
@@ -81,7 +81,7 @@ export function OccasionCard({ occasion, onPress }: OccasionCardProps) {
   // Accessibility label
   const accessibilityLabel = [
     name,
-    occasionType,
+    type,
     date ? formattedDate : 'No date set',
     daysUntilText,
   ]
@@ -113,7 +113,7 @@ export function OccasionCard({ occasion, onPress }: OccasionCardProps) {
               className="text-xs font-medium"
               style={{ color: typeColors.text }}
             >
-              {occasionType}
+              {type}
             </Text>
           </View>
 

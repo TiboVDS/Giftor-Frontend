@@ -56,6 +56,49 @@ jest.mock('@/features/recipients/stores/recipientStore', () => ({
   }),
 }));
 
+jest.mock('@/features/gift-ideas/stores/giftIdeaStore', () => ({
+  useGiftIdeaStore: () => ({
+    giftIdeas: [
+      {
+        id: 'gift-1',
+        userId: 'user-1',
+        recipientId: 'rec-123',
+        occasionId: 'occ-123',
+        giftText: 'Flowers',
+        currency: 'EUR',
+        isPurchased: false,
+        capturedAt: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'gift-2',
+        userId: 'user-1',
+        recipientId: 'rec-123',
+        occasionId: 'occ-123',
+        giftText: 'Book',
+        currency: 'EUR',
+        isPurchased: false,
+        capturedAt: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'gift-3',
+        userId: 'user-1',
+        recipientId: 'rec-123',
+        occasionId: 'other-occ', // Different occasion
+        giftText: 'Watch',
+        currency: 'EUR',
+        isPurchased: false,
+        capturedAt: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+    ],
+  }),
+}));
+
 jest.mock('@/hooks/useNetworkStatus', () => ({
   useNetworkStatus: () => ({
     isOnline: true,
@@ -145,17 +188,24 @@ describe('OccasionDetailScreen', () => {
     expect(getByText('Delete Occasion')).toBeTruthy();
   });
 
-  it('shows confirmation dialog when delete is pressed', () => {
+  it('shows confirmation dialog with gift ideas message when delete is pressed', () => {
     const { getByLabelText } = render(<OccasionDetailScreen />);
 
     const deleteButton = getByLabelText('Delete occasion');
     fireEvent.press(deleteButton);
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      'Delete Occasion',
-      'Are you sure you want to delete this occasion? This action cannot be undone.',
+      'Delete this occasion?',
+      "Gift ideas for Emma Johnson won't be deleted - they'll become unscheduled.",
       expect.any(Array)
     );
+  });
+
+  it('displays gift ideas count', () => {
+    const { getByText } = render(<OccasionDetailScreen />);
+
+    // Should show 2 gift ideas for this occasion
+    expect(getByText('2 gift ideas for this occasion')).toBeTruthy();
   });
 
   it('calls deleteOccasion when delete is confirmed', async () => {

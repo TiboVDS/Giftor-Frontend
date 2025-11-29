@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { OccasionForm, OccasionFormData } from '../../src/features/occasions/components/OccasionForm';
 import { useOccasionStore } from '../../src/features/occasions/stores/occasionStore';
 import { useRecipientStore } from '../../src/features/recipients/stores/recipientStore';
+import { useGiftIdeaStore } from '../../src/features/gift-ideas/stores/giftIdeaStore';
 import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
 import { OCCASION_TYPE_LABELS } from '../../src/features/occasions/components/OccasionTypeDropdown';
 
@@ -32,6 +33,7 @@ export default function OccasionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { occasions, updateOccasion, deleteOccasion } = useOccasionStore();
   const { recipients } = useRecipientStore();
+  const { giftIdeas } = useGiftIdeaStore();
   const { isOnline } = useNetworkStatus();
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -47,6 +49,12 @@ export default function OccasionDetailScreen() {
     if (!occasion) return null;
     return recipients.find((r) => r.id === occasion.recipientId);
   }, [occasion, recipients]);
+
+  // Count gift ideas for this occasion
+  const giftIdeasCount = useMemo(() => {
+    if (!occasion) return 0;
+    return giftIdeas.filter((g) => g.occasionId === occasion.id).length;
+  }, [giftIdeas, occasion]);
 
   const handleBack = useCallback(() => {
     if (isEditMode) {
@@ -95,9 +103,10 @@ export default function OccasionDetailScreen() {
   }, []);
 
   const handleDelete = useCallback(() => {
+    const recipientName = recipient?.name || 'this occasion';
     Alert.alert(
-      'Delete Occasion',
-      'Are you sure you want to delete this occasion? This action cannot be undone.',
+      'Delete this occasion?',
+      `Gift ideas for ${recipientName} won't be deleted - they'll become unscheduled.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -109,7 +118,7 @@ export default function OccasionDetailScreen() {
             setIsDeleting(true);
             try {
               await deleteOccasion(occasion.id, isOnline);
-              Alert.alert('Deleted', 'Occasion has been deleted', [
+              Alert.alert('Success', 'Occasion deleted', [
                 {
                   text: 'OK',
                   onPress: () => router.back(),
@@ -128,7 +137,7 @@ export default function OccasionDetailScreen() {
         },
       ]
     );
-  }, [occasion, isOnline, deleteOccasion, router]);
+  }, [occasion, recipient, isOnline, deleteOccasion, router]);
 
   const handleNavigateToRecipient = useCallback(() => {
     if (recipient) {
@@ -279,6 +288,21 @@ export default function OccasionDetailScreen() {
             </Pressable>
           </View>
         )}
+
+        {/* Gift Ideas Count */}
+        <View className="mb-6">
+          <Text className="text-sm font-medium text-gray-500 mb-1">Gift Ideas</Text>
+          <View className="flex-row items-center">
+            <Ionicons name="gift-outline" size={20} color="#6B7280" />
+            <Text className="text-base text-gray-900 ml-2">
+              {giftIdeasCount === 0
+                ? 'No gift ideas yet'
+                : giftIdeasCount === 1
+                ? '1 gift idea for this occasion'
+                : `${giftIdeasCount} gift ideas for this occasion`}
+            </Text>
+          </View>
+        </View>
 
         {/* Recurring indicator */}
         {occasion.isRecurring && (

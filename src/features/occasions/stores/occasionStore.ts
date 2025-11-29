@@ -21,6 +21,29 @@ const transformApiOccasion = (apiOccasion: any): Occasion => ({
   updatedAt: apiOccasion.updatedAt,
 });
 
+/**
+ * Calculate days until a given date from today.
+ * Returns positive for future dates, negative for past dates, 0 for today.
+ */
+export function getDaysUntil(dateString: string): number {
+  const occasionDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  occasionDate.setHours(0, 0, 0, 0);
+  return Math.floor((occasionDate.getTime() - today.getTime()) / 86400000);
+}
+
+/**
+ * Format days until for display.
+ * Returns "Today", "Tomorrow", "in X days", or "X days ago".
+ */
+export function formatDaysUntil(days: number): string {
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days < 0) return `${Math.abs(days)} days ago`;
+  return `in ${days} days`;
+}
+
 interface OccasionStore {
   occasions: Occasion[];
   isLoading: boolean;
@@ -33,6 +56,9 @@ interface OccasionStore {
   updateOccasion: (occasion: Occasion, isOnline: boolean) => Promise<void>;
   deleteOccasion: (id: string, isOnline: boolean) => Promise<void>;
   clearOccasions: () => void;
+
+  // Selectors
+  getUpcomingOccasions: (daysAhead?: number) => Occasion[];
 }
 
 export const useOccasionStore = create<OccasionStore>((set, get) => ({
@@ -196,6 +222,22 @@ export const useOccasionStore = create<OccasionStore>((set, get) => ({
    */
   clearOccasions: () => {
     set({ occasions: [], isLoading: false, isSyncing: false, error: null });
+  },
+
+  /**
+   * Get upcoming occasions within a number of days (default 30).
+   * Returns occasions sorted by date ascending (soonest first).
+   * Excludes occasions without dates.
+   */
+  getUpcomingOccasions: (daysAhead = 30) => {
+    const occasions = get().occasions;
+    return occasions
+      .filter((o) => {
+        if (!o.date) return false;
+        const days = getDaysUntil(o.date);
+        return days >= 0 && days <= daysAhead;
+      })
+      .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
   },
 }));
 

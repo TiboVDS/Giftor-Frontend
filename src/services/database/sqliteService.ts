@@ -17,6 +17,7 @@ import {
   CREATE_PENDING_SYNC_ACTIONS_TABLE,
   CREATE_PENDING_SYNC_ACTIONS_INDEXES,
   DROP_ALL_TABLES,
+  MIGRATE_ADD_REMINDER_INTERVALS,
 } from './schema';
 
 const DATABASE_NAME = 'giftor.db';
@@ -43,10 +44,36 @@ export const initDatabase = async (): Promise<void> => {
     await db.execAsync(CREATE_PENDING_SYNC_ACTIONS_TABLE);
     await db.execAsync(CREATE_PENDING_SYNC_ACTIONS_INDEXES);
 
+    // Run migrations for existing databases
+    await runMigrations();
+
     console.log('✅ SQLite database initialized successfully');
   } catch (error) {
     console.error('❌ Failed to initialize database:', error);
     throw error;
+  }
+};
+
+/**
+ * Run database migrations to add new columns to existing tables
+ */
+const runMigrations = async (): Promise<void> => {
+  const database = getDb();
+
+  // Migration 1: Add reminder_intervals column to occasions table (Story 2.7)
+  // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check first
+  try {
+    const tableInfo = await database.getAllAsync<{ name: string }>(
+      "PRAGMA table_info(occasions)"
+    );
+    const hasReminderIntervals = tableInfo.some(col => col.name === 'reminder_intervals');
+
+    if (!hasReminderIntervals) {
+      await database.execAsync(MIGRATE_ADD_REMINDER_INTERVALS);
+      console.log('✅ Migration: Added reminder_intervals column to occasions table');
+    }
+  } catch (error) {
+    console.warn('⚠️ Migration check failed (table may not exist yet):', error);
   }
 };
 
@@ -165,8 +192,9 @@ export const getOccasions = async (userId: string): Promise<Occasion[]> => {
     recipientId: row.recipient_id,
     userId: row.user_id,
     name: row.name,
-    occasionType: row.occasion_type,
+    type: row.occasion_type,
     date: row.date || undefined,
+    reminderIntervals: row.reminder_intervals ? JSON.parse(row.reminder_intervals) : [14, 7, 2],
     isRecurring: row.is_recurring === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -176,15 +204,16 @@ export const getOccasions = async (userId: string): Promise<Occasion[]> => {
 export const insertOccasion = async (occasion: Occasion): Promise<Occasion> => {
   const database = getDb();
   await database.runAsync(
-    `INSERT INTO occasions (id, recipient_id, user_id, name, occasion_type, date, is_recurring, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO occasions (id, recipient_id, user_id, name, occasion_type, date, reminder_intervals, is_recurring, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       occasion.id,
       occasion.recipientId,
       occasion.userId,
       occasion.name,
-      occasion.occasionType,
+      occasion.type,
       occasion.date || null,
+      JSON.stringify(occasion.reminderIntervals || [14, 7, 2]),
       occasion.isRecurring ? 1 : 0,
       occasion.createdAt,
       occasion.updatedAt,
@@ -197,12 +226,13 @@ export const updateOccasion = async (occasion: Occasion): Promise<Occasion> => {
   const database = getDb();
   await database.runAsync(
     `UPDATE occasions
-     SET name = ?, occasion_type = ?, date = ?, is_recurring = ?, updated_at = ?
+     SET name = ?, occasion_type = ?, date = ?, reminder_intervals = ?, is_recurring = ?, updated_at = ?
      WHERE id = ?`,
     [
       occasion.name,
-      occasion.occasionType,
+      occasion.type,
       occasion.date || null,
+      JSON.stringify(occasion.reminderIntervals || [14, 7, 2]),
       occasion.isRecurring ? 1 : 0,
       occasion.updatedAt,
       occasion.id,

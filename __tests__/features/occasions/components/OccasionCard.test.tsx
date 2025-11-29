@@ -21,8 +21,9 @@ const mockOccasion: Occasion = {
   recipientId: 'rec-1',
   userId: 'user-1',
   name: "Emma's Birthday",
-  occasionType: 'Birthday',
+  type: 'Birthday',
   date: '2025-03-15',
+  reminderIntervals: [14, 7, 2],
   isRecurring: true,
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
@@ -86,7 +87,7 @@ describe('OccasionCard', () => {
   it('renders different occasion types with correct styling', () => {
     const anniversaryOccasion: Occasion = {
       ...mockOccasion,
-      occasionType: 'Anniversary',
+      type: 'Anniversary',
     };
 
     const { getByText } = render(

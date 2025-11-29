@@ -29,6 +29,7 @@ export const CREATE_OCCASIONS_TABLE = `
     name TEXT NOT NULL,
     occasion_type TEXT NOT NULL,
     date TEXT,
+    reminder_intervals TEXT, -- JSON array stored as string, e.g., "[14, 7, 2]"
     is_recurring INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -94,4 +95,10 @@ export const DROP_ALL_TABLES = `
   DROP TABLE IF EXISTS gift_ideas;
   DROP TABLE IF EXISTS occasions;
   DROP TABLE IF EXISTS recipients;
+`;
+
+// Migration: Add reminder_intervals column to occasions table if it doesn't exist
+// This handles databases created before Story 2.7
+export const MIGRATE_ADD_REMINDER_INTERVALS = `
+  ALTER TABLE occasions ADD COLUMN reminder_intervals TEXT;
 `;
